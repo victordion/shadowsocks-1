@@ -25,7 +25,7 @@ import logging
 import json
 import collections
 
-from shadowsocks import common, eventloop, tcprelay, udprelay, asyncdns, shell
+from shadowsocks import common, eventloop, tcprelayhandler, udprelay, asyncdns, shell
 
 
 BUF_SIZE = 1506
@@ -85,8 +85,8 @@ class Manager(object):
                                                               port))
             return
         logging.info("adding server at %s:%d" % (config['server'], port))
-        t = tcprelay.TCPRelay(config, self._dns_resolver, False,
-                              self.stat_callback)
+        t = tcprelayhandler.TCPRelay(config, self._dns_resolver, False,
+                                     self.stat_callback)
         u = udprelay.UDPRelay(config, self._dns_resolver, False,
                               self.stat_callback)
         t.add_to_loop(self._loop)

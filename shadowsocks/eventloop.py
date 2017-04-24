@@ -157,23 +157,26 @@ class EventLoop(object):
         else:
             raise Exception('can not find any available functions in select '
                             'package')
-        self._fdmap = {}  # (f, handler)
+        # maps fd to (socket, relayserver)
+        self._fdmap = {}
+
         self._last_time = time.time()
         self._periodic_callbacks = []
         self._stopping = False
         logging.debug('using event model: %s', model)
 
+    # returns a 3 element tuple (socket, fd, event)
     def poll(self, timeout=None):
         events = self._impl.poll(timeout)
         return [(self._fdmap[fd][0], fd, event) for fd, event in events]
 
-    def add(self, f, mode, handler):
-        fd = f.fileno()
-        self._fdmap[fd] = (f, handler)
+    def add(self, socket, mode, relay_server):
+        fd = socket.fileno()
+        self._fdmap[fd] = (socket, relay_server)
         self._impl.register(fd, mode)
 
-    def remove(self, f):
-        fd = f.fileno()
+    def remove(self, socket):
+        fd = socket.fileno()
         del self._fdmap[fd]
         self._impl.unregister(fd)
 
@@ -183,19 +186,19 @@ class EventLoop(object):
     def remove_periodic(self, callback):
         self._periodic_callbacks.remove(callback)
 
-    def modify(self, f, mode):
-        fd = f.fileno()
+    def modify(self, socket, mode):
+        fd = socket.fileno()
         self._impl.modify(fd, mode)
 
     def stop(self):
         self._stopping = True
 
     def run(self):
-        events = []
+        poll_results = []
         while not self._stopping:
             asap = False
             try:
-                events = self.poll(TIMEOUT_PRECISION)
+                poll_results = self.poll(TIMEOUT_PRECISION)
             except (OSError, IOError) as e:
                 if errno_from_exception(e) in (errno.EPIPE, errno.EINTR):
                     # EPIPE: Happens when the client closes the connection
@@ -208,15 +211,17 @@ class EventLoop(object):
                     traceback.print_exc()
                     continue
 
-            for sock, fd, event in events:
-                handler = self._fdmap.get(fd, None)
-                if handler is not None:
-                    handler = handler[1]
+            for sock, fd, event in poll_results:
+                socket_and_relayserver = self._fdmap.get(fd, None)
+                if socket_and_relayserver is not None:
+                    relayserver = socket_and_relayserver[1]
                     try:
-                        handler.handle_event(sock, fd, event)
+                        relayserver.handle_event(sock, fd, event)
                     except (OSError, IOError) as e:
                         shell.print_exception(e)
+
             now = time.time()
+
             if asap or now - self._last_time >= TIMEOUT_PRECISION:
                 for callback in self._periodic_callbacks:
                     callback()

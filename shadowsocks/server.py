@@ -24,7 +24,7 @@ import logging
 import signal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))
-from shadowsocks import shell, daemon, eventloop, tcprelay, udprelay, \
+from shadowsocks import shell, daemon, eventloop, tcprelayserver, udprelay, \
     asyncdns, manager
 
 
@@ -71,7 +71,8 @@ def main():
         a_config['password'] = password
         logging.info("starting server at %s:%d" %
                      (a_config['server'], int(port)))
-        tcp_servers.append(tcprelay.TCPRelay(a_config, dns_resolver, False))
+
+        tcp_servers.append(tcprelayserver.TCPRelayServer(a_config, dns_resolver, False))
         udp_servers.append(udprelay.UDPRelay(a_config, dns_resolver, False))
 
     def run_server():
@@ -79,18 +80,21 @@ def main():
             logging.warn('received SIGQUIT, doing graceful shutting down..')
             list(map(lambda s: s.close(next_tick=True),
                      tcp_servers + udp_servers))
-        signal.signal(getattr(signal, 'SIGQUIT', signal.SIGTERM),
-                      child_handler)
 
         def int_handler(signum, _):
             sys.exit(1)
+
+        # register two signal handlers to do graceful quit
+        signal.signal(
+            getattr(signal, 'SIGQUIT', signal.SIGTERM),
+            child_handler
+        )
         signal.signal(signal.SIGINT, int_handler)
 
         try:
             loop = eventloop.EventLoop()
             dns_resolver.add_to_loop(loop)
             list(map(lambda s: s.add_to_loop(loop), tcp_servers + udp_servers))
-
             daemon.set_user(config.get('user', None))
             loop.run()
         except Exception as e:

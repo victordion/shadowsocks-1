@@ -24,7 +24,7 @@ import logging
 import signal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))
-from shadowsocks import shell, daemon, eventloop, tcprelay, udprelay, asyncdns
+from shadowsocks import shell, daemon, eventloop, tcprelayhandler, udprelay, asyncdns
 
 
 @shell.exception_handle(self_=False, exit_code=1)
@@ -47,7 +47,7 @@ def main():
     logging.info("starting tcp tunnel at %s:%d forward to %s:%d" %
                  (_config['local_address'], _config['local_port'],
                   _config['tunnel_remote'], _config['tunnel_remote_port']))
-    tunnel_tcp_server = tcprelay.TCPRelay(_config, dns_resolver, True)
+    tunnel_tcp_server = tcprelayhandler.TCPRelay(_config, dns_resolver, True)
     tunnel_tcp_server._is_tunnel = True
     tunnel_tcp_server.add_to_loop(loop)
     logging.info("starting udp tunnel at %s:%d forward to %s:%d" %

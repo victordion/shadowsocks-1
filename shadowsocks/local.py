@@ -24,7 +24,7 @@ import logging
 import signal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))
-from shadowsocks import shell, daemon, eventloop, tcprelay, udprelay, asyncdns
+from shadowsocks import shell, daemon, eventloop, tcprelayhandler, udprelay, asyncdns
 
 
 @shell.exception_handle(self_=False, exit_code=1)
@@ -44,7 +44,7 @@ def main():
                  (config['local_address'], config['local_port']))
 
     dns_resolver = asyncdns.DNSResolver()
-    tcp_server = tcprelay.TCPRelay(config, dns_resolver, True)
+    tcp_server = tcprelayhandler.TCPRelay(config, dns_resolver, True)
     udp_server = udprelay.UDPRelay(config, dns_resolver, True)
     loop = eventloop.EventLoop()
     dns_resolver.add_to_loop(loop)
